@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Yogyn.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+325af2777ae5b27bc59d536e0b681ddd6c658680")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b943735473c2aaf9004810824b1e2e99067c7105")]
 [assembly: System.Reflection.AssemblyProductAttribute("Yogyn.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Yogyn.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
