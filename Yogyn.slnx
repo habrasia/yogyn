@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Yogyn.Api/Yogyn.Api.csproj" />
+  </Folder>
+</Solution>
