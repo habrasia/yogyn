@@ -8,10 +8,9 @@ builder.Services.AddDbContext<YogynDbContext>(options =>
 
 builder.Services.AddControllers();
 
-builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-=builder.Services.AddCors(options =>
+builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
@@ -30,9 +29,14 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
-
 app.UseAuthorization();
-
 app.MapControllers();
+
+using var scope = app.Services.CreateScope();
+var db = scope.ServiceProvider.GetRequiredService<YogynDbContext>();
+var conn = db.Database.GetDbConnection();
+
+app.Logger.LogInformation("DB CONNECTED TO: {DataSource} | DB: {Database}",
+    conn.DataSource, conn.Database);
 
 app.Run();
