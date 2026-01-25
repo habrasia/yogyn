@@ -6,7 +6,7 @@ using Yogyn.Api.Models;
 namespace Yogyn.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/studios")]
 public class StudiosController : ControllerBase
 {
     private readonly YogynDbContext _context;
@@ -34,7 +34,7 @@ public class StudiosController : ControllerBase
                 s.Timezone,
                 s.Status,
                 s.CreatedAt,
-                SessionCount = s.Sessions.Count,
+                SessionCount = s.Sessions.Count(sess => sess.Status == SessionStatus.Active),
                 UserCount = s.StudioUsers.Count
             })
             .ToListAsync();
@@ -44,12 +44,36 @@ public class StudiosController : ControllerBase
 
     // GET: api/studios/{id}
     [HttpGet("{id}")]
-    public async Task<ActionResult<Studio>> GetStudio(Guid id)
+    public async Task<ActionResult> GetStudio(Guid id)
     {
         _logger.LogInformation("Fetching studio {StudioId}", id);
         
         var studio = await _context.Studios
             .Where(s => s.Status == StudioStatus.Active)
+            .Select(s => new
+            {
+                s.Id,
+                s.Name,
+                s.Slug,
+                s.Timezone,
+                s.Status,
+                s.CreatedAt,
+                Sessions = s.Sessions
+                    .Where(sess => sess.Status == SessionStatus.Active)
+                    .OrderBy(sess => sess.StartsAt)
+                    .Select(sess => new
+                    {
+                        sess.Id,
+                        sess.Title,
+                        sess.StartsAt,
+                        sess.DurationMinutes,
+                        sess.Capacity,
+                        BookedCount = sess.Bookings.Count(b => b.Status == BookingStatus.Confirmed),
+                        SpotsLeft = sess.Capacity - sess.Bookings.Count(b => b.Status == BookingStatus.Confirmed)
+                    })
+                    .ToList(),
+                UserCount = s.StudioUsers.Count
+            })
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (studio == null)
@@ -63,7 +87,7 @@ public class StudiosController : ControllerBase
 
     // POST: api/studios
     [HttpPost]
-    public async Task<ActionResult<Studio>> CreateStudio([FromBody] CreateStudioDto dto)
+    public async Task<ActionResult> CreateStudio([FromBody] CreateStudioDto dto)
     {
         _logger.LogInformation("Creating studio with slug {Slug}", dto.Slug);
         
@@ -115,11 +139,11 @@ public class StudiosController : ControllerBase
         return NoContent();
     }
 
-    // DELETE: api/studios/{id} - Soft delete (change status)
+    // DELETE: api/studios/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteStudio(Guid id)
     {
-        _logger.LogInformation("Soft-deleting (suspending) studio {StudioId}", id);
+        _logger.LogInformation("Soft-deleting studio {StudioId}", id);
         
         var studio = await _context.Studios.FindAsync(id);
         if (studio == null)
@@ -137,6 +161,6 @@ public class StudiosController : ControllerBase
     }
 }
 
-// DTOs (Data Transfer Objects)
+// DTOs
 public record CreateStudioDto(string Name, string Slug, string Timezone);
 public record UpdateStudioDto(string Name, string Timezone);
