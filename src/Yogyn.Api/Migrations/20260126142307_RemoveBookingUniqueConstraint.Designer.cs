@@ -12,15 +12,15 @@ using Yogyn.Api.Data;
 namespace Yogyn.Api.Migrations
 {
     [DbContext(typeof(YogynDbContext))]
-    [Migration("20260125123725_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260126142307_RemoveBookingUniqueConstraint")]
+    partial class RemoveBookingUniqueConstraint
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.2")
+                .HasAnnotation("ProductVersion", "9.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -74,9 +74,7 @@ namespace Yogyn.Api.Migrations
 
                     b.HasIndex("SessionId");
 
-                    b.HasIndex("StudioId", "SessionId", "Email")
-                        .IsUnique()
-                        .HasDatabaseName("IX_Booking_Unique");
+                    b.HasIndex("StudioId");
 
                     b.ToTable("Bookings");
                 });

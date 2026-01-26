@@ -59,10 +59,6 @@ public class YogynDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             
-            entity.HasIndex(e => new { e.StudioId, e.SessionId, e.Email })
-                  .IsUnique()
-                  .HasDatabaseName("IX_Booking_Unique");
-            
             entity.HasIndex(e => e.CancelToken);
             
             entity.Property(e => e.FirstName).HasMaxLength(100).IsRequired();
