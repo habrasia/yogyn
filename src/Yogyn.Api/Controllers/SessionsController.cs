@@ -18,7 +18,9 @@ public class SessionsController : ControllerBase
         _logger = logger;
     }
 
-    // GET: api/sessions
+    /// <summary>
+    /// Get all active sessions with optional studio filter
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<object>>> GetSessions([FromQuery] Guid? studioId = null)
     {
@@ -53,10 +55,14 @@ public class SessionsController : ControllerBase
             .OrderBy(s => s.StartsAt)
             .ToListAsync();
 
+        _logger.LogInformation("Found {Count} sessions", sessions.Count);
+
         return Ok(sessions);
     }
 
-    // GET: api/sessions/{id}
+    /// <summary>
+    /// Get a single session by ID with participant list
+    /// </summary>
     [HttpGet("{id}")]
     public async Task<ActionResult> GetSession(Guid id)
     {
@@ -100,14 +106,16 @@ public class SessionsController : ControllerBase
 
         if (session == null)
         {
-            _logger.LogWarning("Session {SessionId} not found", id);
+            _logger.LogWarning("Session {SessionId} not found or cancelled", id);
             return NotFound(new { error = "Session not found" });
         }
 
         return Ok(session);
     }
 
-    // POST: api/sessions
+    /// <summary>
+    /// Create a new session
+    /// </summary>
     [HttpPost]
     public async Task<ActionResult> CreateSession([FromBody] CreateSessionDto dto)
     {
@@ -143,7 +151,7 @@ public class SessionsController : ControllerBase
         {
             Id = Guid.NewGuid(),
             StudioId = dto.StudioId,
-            Title = dto.Title,
+            Title = dto.Title.Trim(),
             StartsAt = dto.StartsAt,
             DurationMinutes = dto.DurationMinutes,
             Capacity = dto.Capacity,
@@ -154,7 +162,7 @@ public class SessionsController : ControllerBase
         _context.Sessions.Add(session);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Session {SessionId} created successfully", session.Id);
+        _logger.LogInformation("Session {SessionId} created successfully for studio {StudioId}", session.Id, session.StudioId);
 
         return CreatedAtAction(nameof(GetSession), new { id = session.Id }, new
         {
@@ -169,7 +177,9 @@ public class SessionsController : ControllerBase
         });
     }
 
-    // PUT: api/sessions/{id}
+    /// <summary>
+    /// Update session details
+    /// </summary>
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateSession(Guid id, [FromBody] UpdateSessionDto dto)
     {
@@ -188,10 +198,19 @@ public class SessionsController : ControllerBase
 
         if (dto.Capacity < currentBookings)
         {
-            return BadRequest(new { error = $"Cannot reduce capacity below current bookings ({currentBookings})" });
+            _logger.LogWarning(
+                "Cannot reduce session {SessionId} capacity to {NewCapacity} - current bookings: {CurrentBookings}", 
+                id, dto.Capacity, currentBookings
+            );
+            return BadRequest(new 
+            { 
+                error = $"Cannot reduce capacity below current bookings ({currentBookings})",
+                currentBookings,
+                requestedCapacity = dto.Capacity
+            });
         }
 
-        session.Title = dto.Title;
+        session.Title = dto.Title.Trim();
         session.StartsAt = dto.StartsAt;
         session.DurationMinutes = dto.DurationMinutes;
         session.Capacity = dto.Capacity;
@@ -203,7 +222,9 @@ public class SessionsController : ControllerBase
         return NoContent();
     }
 
-    // DELETE: api/sessions/{id}
+    /// <summary>
+    /// Cancel session (soft delete - sets status to Cancelled)
+    /// </summary>
     [HttpDelete("{id}")]
     public async Task<IActionResult> CancelSession(Guid id)
     {

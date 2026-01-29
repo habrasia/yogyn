@@ -18,7 +18,9 @@ public class StudiosController : ControllerBase
         _logger = logger;
     }
 
-    // GET: api/studios
+    /// <summary>
+    /// Get all active studios with session and user counts
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<object>>> GetStudios()
     {
@@ -37,12 +39,17 @@ public class StudiosController : ControllerBase
                 SessionCount = s.Sessions.Count(sess => sess.Status == SessionStatus.Active),
                 UserCount = s.StudioUsers.Count
             })
+            .OrderBy(s => s.Name)
             .ToListAsync();
+
+        _logger.LogInformation("Found {Count} active studios", studios.Count);
 
         return Ok(studios);
     }
 
-    // GET: api/studios/{id}
+    /// <summary>
+    /// Get a single studio by ID with active sessions
+    /// </summary>
     [HttpGet("{id}")]
     public async Task<ActionResult> GetStudio(Guid id)
     {
@@ -69,7 +76,8 @@ public class StudiosController : ControllerBase
                         sess.DurationMinutes,
                         sess.Capacity,
                         BookedCount = sess.Bookings.Count(b => b.Status == BookingStatus.Confirmed),
-                        SpotsLeft = sess.Capacity - sess.Bookings.Count(b => b.Status == BookingStatus.Confirmed)
+                        SpotsLeft = sess.Capacity - sess.Bookings.Count(b => b.Status == BookingStatus.Confirmed),
+                        IsFull = sess.Bookings.Count(b => b.Status == BookingStatus.Confirmed) >= sess.Capacity
                     })
                     .ToList(),
                 UserCount = s.StudioUsers.Count
@@ -78,32 +86,35 @@ public class StudiosController : ControllerBase
 
         if (studio == null)
         {
-            _logger.LogWarning("Studio {StudioId} not found", id);
+            _logger.LogWarning("Studio {StudioId} not found or suspended", id);
             return NotFound(new { error = "Studio not found" });
         }
 
         return Ok(studio);
     }
 
-    // POST: api/studios
+    /// <summary>
+    /// Create a new studio
+    /// </summary>
     [HttpPost]
     public async Task<ActionResult> CreateStudio([FromBody] CreateStudioDto dto)
     {
         _logger.LogInformation("Creating studio with slug {Slug}", dto.Slug);
+
+        var normalizedSlug = dto.Slug.Trim().ToLower();
         
-        // Validate slug uniqueness
-        if (await _context.Studios.AnyAsync(s => s.Slug == dto.Slug))
+        if (await _context.Studios.AnyAsync(s => s.Slug.ToLower() == normalizedSlug))
         {
-            _logger.LogWarning("Slug {Slug} already exists", dto.Slug);
+            _logger.LogWarning("Slug {Slug} already exists", normalizedSlug);
             return Conflict(new { error = "A studio with this slug already exists" });
         }
 
         var studio = new Studio
         {
             Id = Guid.NewGuid(),
-            Name = dto.Name,
-            Slug = dto.Slug,
-            Timezone = dto.Timezone,
+            Name = dto.Name.Trim(),
+            Slug = normalizedSlug,
+            Timezone = dto.Timezone.Trim(),
             Status = StudioStatus.Active,
             CreatedAt = DateTime.UtcNow
         };
@@ -111,12 +122,22 @@ public class StudiosController : ControllerBase
         _context.Studios.Add(studio);
         await _context.SaveChangesAsync();
         
-        _logger.LogInformation("Studio {StudioId} created successfully", studio.Id);
+        _logger.LogInformation("Studio {StudioId} created successfully with slug {Slug}", studio.Id, studio.Slug);
 
-        return CreatedAtAction(nameof(GetStudio), new { id = studio.Id }, studio);
+        return CreatedAtAction(nameof(GetStudio), new { id = studio.Id }, new
+        {
+            studio.Id,
+            studio.Name,
+            studio.Slug,
+            studio.Timezone,
+            studio.Status,
+            studio.CreatedAt
+        });
     }
 
-    // PUT: api/studios/{id}
+    /// <summary>
+    /// Update studio details (name and timezone)
+    /// </summary>
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateStudio(Guid id, [FromBody] UpdateStudioDto dto)
     {
@@ -129,8 +150,8 @@ public class StudiosController : ControllerBase
             return NotFound(new { error = "Studio not found" });
         }
 
-        studio.Name = dto.Name;
-        studio.Timezone = dto.Timezone;
+        studio.Name = dto.Name.Trim();
+        studio.Timezone = dto.Timezone.Trim();
 
         await _context.SaveChangesAsync();
         
@@ -139,7 +160,9 @@ public class StudiosController : ControllerBase
         return NoContent();
     }
 
-    // DELETE: api/studios/{id}
+    /// <summary>
+    /// Delete studio (soft delete - sets status to Suspended)
+    /// </summary>
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteStudio(Guid id)
     {
