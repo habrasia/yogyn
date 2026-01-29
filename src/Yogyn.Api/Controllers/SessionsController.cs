@@ -18,21 +18,16 @@ public class SessionsController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Get all active sessions with optional studio filter
-    /// </summary>
+    // GET: api/sessions
     [HttpGet]
     public async Task<ActionResult<IEnumerable<object>>> GetSessions([FromQuery] Guid? studioId = null)
     {
-        _logger.LogInformation("Fetching sessions, studioId filter: {StudioId}", studioId);
+        _logger.LogInformation("Fetching sessions");
 
-        var query = _context.Sessions
-            .Where(s => s.Status == SessionStatus.Active);
+        var query = _context.Sessions.Where(s => s.Status == SessionStatus.Active);
 
         if (studioId.HasValue)
-        {
             query = query.Where(s => s.StudioId == studioId.Value);
-        }
 
         var sessions = await query
             .Include(s => s.Studio)
@@ -46,6 +41,7 @@ public class SessionsController : ControllerBase
                 s.StartsAt,
                 s.DurationMinutes,
                 s.Capacity,
+                // Count confirmed bookings only (not pending)
                 BookedCount = s.Bookings.Count(b => b.Status == BookingStatus.Confirmed),
                 SpotsLeft = s.Capacity - s.Bookings.Count(b => b.Status == BookingStatus.Confirmed),
                 IsFull = s.Bookings.Count(b => b.Status == BookingStatus.Confirmed) >= s.Capacity,
@@ -55,14 +51,10 @@ public class SessionsController : ControllerBase
             .OrderBy(s => s.StartsAt)
             .ToListAsync();
 
-        _logger.LogInformation("Found {Count} sessions", sessions.Count);
-
         return Ok(sessions);
     }
 
-    /// <summary>
-    /// Get a single session by ID with participant list
-    /// </summary>
+    // GET: api/sessions/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult> GetSession(Guid id)
     {
@@ -105,47 +97,29 @@ public class SessionsController : ControllerBase
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (session == null)
-        {
-            _logger.LogWarning("Session {SessionId} not found or cancelled", id);
             return NotFound(new { error = "Session not found" });
-        }
 
         return Ok(session);
     }
 
-    /// <summary>
-    /// Create a new session
-    /// </summary>
+    // POST: api/sessions
     [HttpPost]
     public async Task<ActionResult> CreateSession([FromBody] CreateSessionDto dto)
     {
         _logger.LogInformation("Creating session for studio {StudioId}", dto.StudioId);
 
-        // Validate studio exists and is active
         var studioExists = await _context.Studios.AnyAsync(s => s.Id == dto.StudioId && s.Status == StudioStatus.Active);
         if (!studioExists)
-        {
-            _logger.LogWarning("Studio {StudioId} not found or inactive", dto.StudioId);
             return BadRequest(new { error = "Studio not found or inactive" });
-        }
 
-        // Validate capacity
         if (dto.Capacity <= 0)
-        {
             return BadRequest(new { error = "Capacity must be greater than 0" });
-        }
 
-        // Validate duration
         if (dto.DurationMinutes <= 0)
-        {
             return BadRequest(new { error = "Duration must be greater than 0" });
-        }
 
-        // Validate start time is in future
         if (dto.StartsAt <= DateTime.UtcNow)
-        {
             return BadRequest(new { error = "Start time must be in the future" });
-        }
 
         var session = new Session
         {
@@ -162,7 +136,7 @@ public class SessionsController : ControllerBase
         _context.Sessions.Add(session);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Session {SessionId} created successfully for studio {StudioId}", session.Id, session.StudioId);
+        _logger.LogInformation("Session {SessionId} created", session.Id);
 
         return CreatedAtAction(nameof(GetSession), new { id = session.Id }, new
         {
@@ -177,9 +151,7 @@ public class SessionsController : ControllerBase
         });
     }
 
-    /// <summary>
-    /// Update session details
-    /// </summary>
+    // PUT: api/sessions/{id}
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateSession(Guid id, [FromBody] UpdateSessionDto dto)
     {
@@ -187,21 +159,13 @@ public class SessionsController : ControllerBase
 
         var session = await _context.Sessions.FindAsync(id);
         if (session == null || session.Status == SessionStatus.Cancelled)
-        {
-            _logger.LogWarning("Session {SessionId} not found or cancelled", id);
             return NotFound(new { error = "Session not found or cancelled" });
-        }
 
-        // Validate capacity isn't less than current bookings
         var currentBookings = await _context.Bookings
             .CountAsync(b => b.SessionId == id && b.Status == BookingStatus.Confirmed);
 
         if (dto.Capacity < currentBookings)
         {
-            _logger.LogWarning(
-                "Cannot reduce session {SessionId} capacity to {NewCapacity} - current bookings: {CurrentBookings}", 
-                id, dto.Capacity, currentBookings
-            );
             return BadRequest(new 
             { 
                 error = $"Cannot reduce capacity below current bookings ({currentBookings})",
@@ -217,14 +181,12 @@ public class SessionsController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Session {SessionId} updated successfully", id);
+        _logger.LogInformation("Session {SessionId} updated", id);
 
         return NoContent();
     }
 
-    /// <summary>
-    /// Cancel session (soft delete - sets status to Cancelled)
-    /// </summary>
+    // DELETE: api/sessions/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> CancelSession(Guid id)
     {
@@ -232,15 +194,12 @@ public class SessionsController : ControllerBase
 
         var session = await _context.Sessions.FindAsync(id);
         if (session == null)
-        {
-            _logger.LogWarning("Session {SessionId} not found", id);
             return NotFound(new { error = "Session not found" });
-        }
 
         session.Status = SessionStatus.Cancelled;
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Session {SessionId} cancelled successfully", id);
+        _logger.LogInformation("Session {SessionId} cancelled", id);
 
         return NoContent();
     }

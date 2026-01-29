@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Yogyn.Api.Data;
@@ -11,9 +12,11 @@ using Yogyn.Api.Data;
 namespace Yogyn.Api.Migrations
 {
     [DbContext(typeof(YogynDbContext))]
-    partial class YogynDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260129072958_AddBookingApprovalFeatureMigration")]
+    partial class AddBookingApprovalFeatureMigration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -18,30 +18,28 @@ public class BookingsController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Get all bookings with optional filters
-    /// </summary>
+    // GET: api/bookings?sessionId=X&email=Y&status=Z
     [HttpGet]
     public async Task<ActionResult<IEnumerable<object>>> GetBookings(
         [FromQuery] Guid? sessionId = null,
-        [FromQuery] string? email = null)
+        [FromQuery] string? email = null,
+        [FromQuery] BookingStatus? status = null)
     {
-        _logger.LogInformation("Fetching bookings, sessionId: {SessionId}, email: {Email}", sessionId, email);
+        _logger.LogInformation("Fetching bookings");
 
         var query = _context.Bookings
             .Include(b => b.Session)
             .Include(b => b.Studio)
-            .Where(b => b.Status == BookingStatus.Confirmed);
+            .Where(b => b.Status != BookingStatus.Cancelled && b.Status != BookingStatus.Rejected);
 
         if (sessionId.HasValue)
-        {
             query = query.Where(b => b.SessionId == sessionId.Value);
-        }
 
         if (!string.IsNullOrWhiteSpace(email))
-        {
             query = query.Where(b => b.Email == email.Trim().ToLower());
-        }
+
+        if (status.HasValue)
+            query = query.Where(b => b.Status == status.Value);
 
         var bookings = await query
             .Select(b => new
@@ -57,20 +55,17 @@ public class BookingsController : ControllerBase
                 b.LastName,
                 b.Email,
                 b.Phone,
+                b.Status,
                 b.AttendanceStatus,
                 b.CreatedAt
             })
             .OrderByDescending(b => b.CreatedAt)
             .ToListAsync();
 
-        _logger.LogInformation("Found {Count} bookings", bookings.Count);
-
         return Ok(bookings);
     }
 
-    /// <summary>
-    /// Get a single booking by ID
-    /// </summary>
+    // GET: api/bookings/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult> GetBooking(Guid id)
     {
@@ -100,72 +95,68 @@ public class BookingsController : ControllerBase
             .FirstOrDefaultAsync();
 
         if (booking == null)
-        {
-            _logger.LogWarning("Booking {BookingId} not found", id);
             return NotFound(new { error = "Booking not found" });
-        }
 
         return Ok(booking);
     }
 
-    /// <summary>
-    /// Create a new booking (public endpoint)
-    /// </summary>
+    // POST: api/bookings
     [HttpPost]
     public async Task<ActionResult> CreateBooking([FromBody] CreateBookingDto dto)
     {
-        _logger.LogInformation("Creating booking for session {SessionId}, email {Email}", dto.SessionId, dto.Email);
+        _logger.LogInformation("Creating booking for session {SessionId}", dto.SessionId);
 
-        // Validate email format
         if (!IsValidEmail(dto.Email))
-        {
-            _logger.LogWarning("Invalid email format: {Email}", dto.Email);
             return BadRequest(new { error = "Invalid email format" });
-        }
 
         var normalizedEmail = dto.Email.Trim().ToLower();
 
-        // Get session with current bookings
+        // Get session with studio and bookings (confirmed + pending)
         var session = await _context.Sessions
             .Include(s => s.Studio)
-            .Include(s => s.Bookings.Where(b => b.Status == BookingStatus.Confirmed))
+            .Include(s => s.Bookings.Where(b => 
+                b.Status == BookingStatus.Confirmed || 
+                b.Status == BookingStatus.Pending))
             .FirstOrDefaultAsync(s => s.Id == dto.SessionId && s.Status == SessionStatus.Active);
 
         if (session == null)
-        {
-            _logger.LogWarning("Session {SessionId} not found or cancelled", dto.SessionId);
             return NotFound(new { error = "Session not found or cancelled" });
-        }
 
-        // Check capacity
+        // Check capacity (confirmed + pending count against capacity)
         var currentBookings = session.Bookings.Count;
         if (currentBookings >= session.Capacity)
         {
-            _logger.LogWarning("Session {SessionId} is full - Capacity: {Capacity}, Booked: {Booked}", 
-                dto.SessionId, session.Capacity, currentBookings);
             return BadRequest(new
             {
                 error = "Session is full",
                 capacity = session.Capacity,
-                booked = currentBookings,
-                message = "This session has reached maximum capacity"
+                booked = currentBookings
             });
         }
 
-        // Check for duplicate booking
+        // Check duplicate (confirmed OR pending)
         var existingBooking = await _context.Bookings.AnyAsync(b =>
             b.SessionId == dto.SessionId &&
             b.Email == normalizedEmail &&
-            b.Status == BookingStatus.Confirmed);
+            (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Pending));
 
         if (existingBooking)
-        {
-            _logger.LogWarning("Duplicate booking attempt - Email {Email} already booked session {SessionId}", 
-                normalizedEmail, dto.SessionId);
             return Conflict(new { error = "You have already booked this session" });
-        }
 
-        // Create booking
+        // Check if returning customer (has attended at least once)
+        var isReturningCustomer = await _context.Bookings.AnyAsync(b =>
+            b.Email == normalizedEmail &&
+            b.StudioId == session.StudioId &&
+            b.Status == BookingStatus.Confirmed &&
+            b.AttendanceStatus == AttendanceStatus.Present);
+
+        // Determine initial status
+        var initialStatus = DetermineBookingStatus(
+            session.Studio.RequiresApproval,
+            session.Studio.AutoApproveReturning,
+            isReturningCustomer
+        );
+
         var booking = new Booking
         {
             Id = Guid.NewGuid(),
@@ -175,7 +166,7 @@ public class BookingsController : ControllerBase
             LastName = dto.LastName.Trim(),
             Email = normalizedEmail,
             Phone = dto.Phone?.Trim(),
-            Status = BookingStatus.Confirmed,
+            Status = initialStatus,
             CancelToken = Guid.NewGuid(),
             AttendanceStatus = AttendanceStatus.NotCheckedIn,
             CreatedAt = DateTime.UtcNow
@@ -184,8 +175,9 @@ public class BookingsController : ControllerBase
         _context.Bookings.Add(booking);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Booking {BookingId} created successfully for session {SessionId}", 
-            booking.Id, dto.SessionId);
+        _logger.LogInformation("Booking {BookingId} created with status {Status}", booking.Id, initialStatus);
+
+        var message = GetBookingMessage(initialStatus, isReturningCustomer);
 
         return CreatedAtAction(nameof(GetBooking), new { id = booking.Id }, new
         {
@@ -199,99 +191,205 @@ public class BookingsController : ControllerBase
             booking.LastName,
             booking.Email,
             booking.Phone,
+            booking.Status,
             booking.CancelToken,
             CancelUrl = $"/api/bookings/cancel/{booking.CancelToken}",
-            Message = "Booking confirmed! You will receive a confirmation email shortly.",
+            Message = message,
+            RequiresApproval = session.Studio.RequiresApproval,
+            IsReturningCustomer = isReturningCustomer,
             SpotsLeft = session.Capacity - currentBookings - 1
         });
     }
 
-    /// <summary>
-    /// Cancel a booking via email link (uses GET for email compatibility)
-    /// </summary>
-    [HttpGet("cancel/{token}")]
-    public async Task<ActionResult> CancelBooking(Guid token)
+    // POST: api/bookings/{id}/approve
+    [HttpPost("{id}/approve")]
+    public async Task<ActionResult> ApproveBooking(Guid id)
     {
-        _logger.LogInformation("Processing cancellation for token {Token}", token);
+        _logger.LogInformation("Approving booking {BookingId}", id);
 
         var booking = await _context.Bookings
             .Include(b => b.Session)
-            .Include(b => b.Studio)
+            .FirstOrDefaultAsync(b => b.Id == id);
+
+        if (booking == null)
+            return NotFound(new { error = "Booking not found" });
+
+        if (booking.Status == BookingStatus.Confirmed)
+            return Ok(new { message = "Booking already approved", alreadyApproved = true });
+
+        if (booking.Status != BookingStatus.Pending)
+            return BadRequest(new { error = "Only pending bookings can be approved" });
+
+        // Check capacity (confirmed only, not pending)
+        var confirmedCount = await _context.Bookings
+            .CountAsync(b => 
+                b.SessionId == booking.SessionId && 
+                b.Status == BookingStatus.Confirmed);
+
+        if (confirmedCount >= booking.Session.Capacity)
+        {
+            return BadRequest(new
+            {
+                error = "Session is now full",
+                capacity = booking.Session.Capacity,
+                confirmed = confirmedCount
+            });
+        }
+
+        booking.Status = BookingStatus.Confirmed;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Booking {BookingId} approved", booking.Id);
+
+        return Ok(new
+        {
+            message = "Booking approved successfully",
+            bookingId = booking.Id,
+            sessionTitle = booking.Session.Title,
+            customerEmail = booking.Email,
+            approved = true
+        });
+    }
+
+    // POST: api/bookings/{id}/reject
+    [HttpPost("{id}/reject")]
+    public async Task<ActionResult> RejectBooking(Guid id, [FromBody] RejectReasonDto dto)
+    {
+        _logger.LogInformation("Rejecting booking {BookingId}", id);
+
+        var booking = await _context.Bookings
+            .Include(b => b.Session)
+            .FirstOrDefaultAsync(b => b.Id == id);
+
+        if (booking == null)
+            return NotFound(new { error = "Booking not found" });
+
+        if (booking.Status == BookingStatus.Rejected)
+            return Ok(new { message = "Booking already rejected", alreadyRejected = true });
+
+        if (booking.Status != BookingStatus.Pending)
+            return BadRequest(new { error = "Only pending bookings can be rejected" });
+
+        booking.Status = BookingStatus.Rejected;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Booking {BookingId} rejected", booking.Id);
+
+        return Ok(new
+        {
+            message = "Booking rejected successfully",
+            bookingId = booking.Id,
+            sessionTitle = booking.Session.Title,
+            customerEmail = booking.Email,
+            reason = dto.Reason,
+            rejected = true
+        });
+    }
+
+    // GET: api/bookings/cancel/{token}
+    [HttpGet("cancel/{token}")]
+    public async Task<ActionResult> CancelBookingByToken(Guid token)
+    {
+        _logger.LogInformation("Processing cancellation token {Token}", token);
+
+        var booking = await _context.Bookings
+            .Include(b => b.Session)
             .FirstOrDefaultAsync(b => b.CancelToken == token);
 
         if (booking == null)
-        {
-            _logger.LogWarning("Invalid cancellation token: {Token}", token);
             return NotFound(new { error = "Invalid cancellation link" });
-        }
 
-        // Already cancelled - idempotent
         if (booking.Status == BookingStatus.Cancelled)
         {
-            _logger.LogInformation("Booking {BookingId} already cancelled - idempotent response", booking.Id);
             return Ok(new
             {
                 message = "This booking has already been cancelled",
                 sessionTitle = booking.Session.Title,
-                sessionStartsAt = booking.Session.StartsAt,
-                studioName = booking.Studio.Name,
                 alreadyCancelled = true
             });
         }
 
-        // Check if session already started
-        if (booking.Session.StartsAt <= DateTime.UtcNow)
+        if (booking.Status == BookingStatus.Pending)
         {
-            _logger.LogWarning("Cannot cancel booking {BookingId} - session already started", booking.Id);
             return BadRequest(new
             {
-                error = "Cannot cancel - session has already started",
-                sessionTitle = booking.Session.Title,
-                sessionStartsAt = booking.Session.StartsAt,
-                studioName = booking.Studio.Name
+                error = "Cannot cancel pending booking via link. Contact studio directly.",
+                sessionTitle = booking.Session.Title
             });
         }
 
-        // Cancel booking
+        if (booking.Session.StartsAt <= DateTime.UtcNow)
+        {
+            return BadRequest(new
+            {
+                error = "Cannot cancel - session has already started",
+                sessionTitle = booking.Session.Title
+            });
+        }
+
         booking.Status = BookingStatus.Cancelled;
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Booking {BookingId} cancelled successfully", booking.Id);
+        _logger.LogInformation("Booking {BookingId} cancelled", booking.Id);
 
         return Ok(new
         {
             message = "Booking cancelled successfully",
             sessionTitle = booking.Session.Title,
-            sessionStartsAt = booking.Session.StartsAt,
-            studioName = booking.Studio.Name,
             cancelled = true
         });
     }
 
-    /// <summary>
-    /// Update attendance status
-    /// </summary>
+    // DELETE: api/bookings/{id}
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> CancelBooking(Guid id, [FromBody] CancelReasonDto? dto = null)
+    {
+        _logger.LogInformation("Admin cancelling booking {BookingId}", id);
+
+        var booking = await _context.Bookings
+            .Include(b => b.Session)
+            .FirstOrDefaultAsync(b => b.Id == id);
+
+        if (booking == null)
+            return NotFound(new { error = "Booking not found" });
+
+        if (booking.Status == BookingStatus.Cancelled)
+            return Ok(new { message = "Booking already cancelled", alreadyCancelled = true });
+
+        booking.Status = BookingStatus.Cancelled;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Booking {BookingId} cancelled by admin", booking.Id);
+
+        return Ok(new
+        {
+            message = "Booking cancelled successfully",
+            bookingId = booking.Id,
+            sessionTitle = booking.Session.Title,
+            customerEmail = booking.Email,
+            reason = dto?.Reason,
+            cancelled = true
+        });
+    }
+
+    // PATCH: api/bookings/{id}/attendance
     [HttpPatch("{id}/attendance")]
     public async Task<IActionResult> UpdateAttendance(Guid id, [FromBody] UpdateAttendanceDto dto)
     {
-        _logger.LogInformation("Updating attendance for booking {BookingId} to {Status}", id, dto.AttendanceStatus);
+        _logger.LogInformation("Updating attendance for {BookingId}", id);
 
         var booking = await _context.Bookings.FindAsync(id);
+        
         if (booking == null || booking.Status == BookingStatus.Cancelled)
-        {
-            _logger.LogWarning("Booking {BookingId} not found or cancelled", id);
             return NotFound(new { error = "Booking not found or cancelled" });
-        }
 
         booking.AttendanceStatus = dto.AttendanceStatus;
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Attendance updated successfully for booking {BookingId}", id);
-
         return NoContent();
     }
 
-    // Email validation helper
+    // Helpers
     private bool IsValidEmail(string email)
     {
         if (string.IsNullOrWhiteSpace(email))
@@ -307,6 +405,31 @@ public class BookingsController : ControllerBase
             return false;
         }
     }
+
+    private BookingStatus DetermineBookingStatus(
+        bool requiresApproval,
+        bool autoApproveReturning,
+        bool isReturningCustomer)
+    {
+        if (!requiresApproval)
+            return BookingStatus.Confirmed;
+        
+        if (autoApproveReturning && isReturningCustomer)
+            return BookingStatus.Confirmed;
+        
+        return BookingStatus.Pending;
+    }
+
+    private string GetBookingMessage(BookingStatus status, bool isReturning)
+    {
+        return status switch
+        {
+            BookingStatus.Confirmed when isReturning => "Welcome back! Booking confirmed.",
+            BookingStatus.Confirmed => "Booking confirmed! Check your email.",
+            BookingStatus.Pending => "Booking received! Waiting for studio approval.",
+            _ => "Booking received."
+        };
+    }
 }
 
 // DTOs
@@ -318,6 +441,6 @@ public record CreateBookingDto(
     string? Phone
 );
 
-public record UpdateAttendanceDto(
-    AttendanceStatus AttendanceStatus
-);
+public record UpdateAttendanceDto(AttendanceStatus AttendanceStatus);
+public record RejectReasonDto(string? Reason);
+public record CancelReasonDto(string? Reason);

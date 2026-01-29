@@ -18,9 +18,7 @@ public class StudiosController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Get all active studios with session and user counts
-    /// </summary>
+    // GET: api/studios
     [HttpGet]
     public async Task<ActionResult<IEnumerable<object>>> GetStudios()
     {
@@ -34,6 +32,8 @@ public class StudiosController : ControllerBase
                 s.Name,
                 s.Slug,
                 s.Timezone,
+                s.RequiresApproval,
+                s.AutoApproveReturning,
                 s.Status,
                 s.CreatedAt,
                 SessionCount = s.Sessions.Count(sess => sess.Status == SessionStatus.Active),
@@ -42,14 +42,10 @@ public class StudiosController : ControllerBase
             .OrderBy(s => s.Name)
             .ToListAsync();
 
-        _logger.LogInformation("Found {Count} active studios", studios.Count);
-
         return Ok(studios);
     }
 
-    /// <summary>
-    /// Get a single studio by ID with active sessions
-    /// </summary>
+    // GET: api/studios/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult> GetStudio(Guid id)
     {
@@ -63,6 +59,8 @@ public class StudiosController : ControllerBase
                 s.Name,
                 s.Slug,
                 s.Timezone,
+                s.RequiresApproval,
+                s.AutoApproveReturning,
                 s.Status,
                 s.CreatedAt,
                 Sessions = s.Sessions
@@ -85,17 +83,12 @@ public class StudiosController : ControllerBase
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (studio == null)
-        {
-            _logger.LogWarning("Studio {StudioId} not found or suspended", id);
             return NotFound(new { error = "Studio not found" });
-        }
 
         return Ok(studio);
     }
 
-    /// <summary>
-    /// Create a new studio
-    /// </summary>
+    // POST: api/studios
     [HttpPost]
     public async Task<ActionResult> CreateStudio([FromBody] CreateStudioDto dto)
     {
@@ -104,10 +97,7 @@ public class StudiosController : ControllerBase
         var normalizedSlug = dto.Slug.Trim().ToLower();
         
         if (await _context.Studios.AnyAsync(s => s.Slug.ToLower() == normalizedSlug))
-        {
-            _logger.LogWarning("Slug {Slug} already exists", normalizedSlug);
             return Conflict(new { error = "A studio with this slug already exists" });
-        }
 
         var studio = new Studio
         {
@@ -115,6 +105,8 @@ public class StudiosController : ControllerBase
             Name = dto.Name.Trim(),
             Slug = normalizedSlug,
             Timezone = dto.Timezone.Trim(),
+            RequiresApproval = dto.RequiresApproval,
+            AutoApproveReturning = dto.AutoApproveReturning,
             Status = StudioStatus.Active,
             CreatedAt = DateTime.UtcNow
         };
@@ -122,7 +114,7 @@ public class StudiosController : ControllerBase
         _context.Studios.Add(studio);
         await _context.SaveChangesAsync();
         
-        _logger.LogInformation("Studio {StudioId} created successfully with slug {Slug}", studio.Id, studio.Slug);
+        _logger.LogInformation("Studio {StudioId} created", studio.Id);
 
         return CreatedAtAction(nameof(GetStudio), new { id = studio.Id }, new
         {
@@ -130,14 +122,14 @@ public class StudiosController : ControllerBase
             studio.Name,
             studio.Slug,
             studio.Timezone,
+            studio.RequiresApproval,
+            studio.AutoApproveReturning,
             studio.Status,
             studio.CreatedAt
         });
     }
 
-    /// <summary>
-    /// Update studio details (name and timezone)
-    /// </summary>
+    // PUT: api/studios/{id}
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateStudio(Guid id, [FromBody] UpdateStudioDto dto)
     {
@@ -145,24 +137,21 @@ public class StudiosController : ControllerBase
         
         var studio = await _context.Studios.FindAsync(id);
         if (studio == null || studio.Status == StudioStatus.Suspended)
-        {
-            _logger.LogWarning("Studio {StudioId} not found or suspended", id);
             return NotFound(new { error = "Studio not found" });
-        }
 
         studio.Name = dto.Name.Trim();
         studio.Timezone = dto.Timezone.Trim();
+        studio.RequiresApproval = dto.RequiresApproval;
+        studio.AutoApproveReturning = dto.AutoApproveReturning;
 
         await _context.SaveChangesAsync();
         
-        _logger.LogInformation("Studio {StudioId} updated successfully", id);
+        _logger.LogInformation("Studio {StudioId} updated", id);
 
         return NoContent();
     }
 
-    /// <summary>
-    /// Delete studio (soft delete - sets status to Suspended)
-    /// </summary>
+    // DELETE: api/studios/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteStudio(Guid id)
     {
@@ -170,20 +159,29 @@ public class StudiosController : ControllerBase
         
         var studio = await _context.Studios.FindAsync(id);
         if (studio == null)
-        {
-            _logger.LogWarning("Studio {StudioId} not found", id);
             return NotFound(new { error = "Studio not found" });
-        }
 
         studio.Status = StudioStatus.Suspended;
         await _context.SaveChangesAsync();
         
-        _logger.LogInformation("Studio {StudioId} suspended successfully", id);
+        _logger.LogInformation("Studio {StudioId} suspended", id);
 
         return NoContent();
     }
 }
 
 // DTOs
-public record CreateStudioDto(string Name, string Slug, string Timezone);
-public record UpdateStudioDto(string Name, string Timezone);
+public record CreateStudioDto(
+    string Name,
+    string Slug,
+    string Timezone,
+    bool RequiresApproval = false,
+    bool AutoApproveReturning = true
+);
+
+public record UpdateStudioDto(
+    string Name,
+    string Timezone,
+    bool RequiresApproval,
+    bool AutoApproveReturning
+);
