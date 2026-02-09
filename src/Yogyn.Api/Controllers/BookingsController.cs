@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Yogyn.Api.Data;
 using Yogyn.Api.Models;
+using Yogyn.Api.Services;
+using Yogyn.Api.Helpers;
 
 namespace Yogyn.Api.Controllers;
 
@@ -11,11 +13,16 @@ public class BookingsController : ControllerBase
 {
     private readonly YogynDbContext _context;
     private readonly ILogger<BookingsController> _logger;
+    private readonly IMessageBusService _messageBus;
 
-    public BookingsController(YogynDbContext context, ILogger<BookingsController> logger)
+    public BookingsController(
+        YogynDbContext context, 
+        ILogger<BookingsController> logger,
+        IMessageBusService messageBus)
     {
         _context = context;
         _logger = logger;
+        _messageBus = messageBus;
     }
 
     // GET: api/bookings?sessionId=X&email=Y&status=Z
@@ -177,6 +184,14 @@ public class BookingsController : ControllerBase
 
         _logger.LogInformation("Booking {BookingId} created with status {Status}", booking.Id, initialStatus);
 
+        // Publish event to Service Bus
+        var bookingEvent = BookingEventFactory.CreateBookingCreatedEvent(
+            booking,
+            session,
+            isReturningCustomer
+        );
+        await _messageBus.PublishAsync(bookingEvent);
+
         var message = GetBookingMessage(initialStatus, isReturningCustomer);
 
         return CreatedAtAction(nameof(GetBooking), new { id = booking.Id }, new
@@ -209,6 +224,7 @@ public class BookingsController : ControllerBase
 
         var booking = await _context.Bookings
             .Include(b => b.Session)
+            .Include(b => b.Studio)
             .FirstOrDefaultAsync(b => b.Id == id);
 
         if (booking == null)
@@ -241,6 +257,10 @@ public class BookingsController : ControllerBase
 
         _logger.LogInformation("Booking {BookingId} approved", booking.Id);
 
+        // Publish approval event
+        var approvalEvent = BookingEventFactory.CreateBookingApprovedEvent(booking);
+        await _messageBus.PublishAsync(approvalEvent);
+
         return Ok(new
         {
             message = "Booking approved successfully",
@@ -259,6 +279,7 @@ public class BookingsController : ControllerBase
 
         var booking = await _context.Bookings
             .Include(b => b.Session)
+            .Include(b => b.Studio)
             .FirstOrDefaultAsync(b => b.Id == id);
 
         if (booking == null)
@@ -274,6 +295,10 @@ public class BookingsController : ControllerBase
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Booking {BookingId} rejected", booking.Id);
+
+        // Publish rejection event
+        var rejectionEvent = BookingEventFactory.CreateBookingRejectedEvent(booking, dto.Reason);
+        await _messageBus.PublishAsync(rejectionEvent);
 
         return Ok(new
         {
@@ -294,6 +319,7 @@ public class BookingsController : ControllerBase
 
         var booking = await _context.Bookings
             .Include(b => b.Session)
+            .Include(b => b.Studio)
             .FirstOrDefaultAsync(b => b.CancelToken == token);
 
         if (booking == null)
@@ -332,6 +358,10 @@ public class BookingsController : ControllerBase
 
         _logger.LogInformation("Booking {BookingId} cancelled", booking.Id);
 
+        // Publish cancellation event
+        var cancellationEvent = BookingEventFactory.CreateBookingCancelledEvent(booking);
+        await _messageBus.PublishAsync(cancellationEvent);
+
         return Ok(new
         {
             message = "Booking cancelled successfully",
@@ -348,6 +378,7 @@ public class BookingsController : ControllerBase
 
         var booking = await _context.Bookings
             .Include(b => b.Session)
+            .Include(b => b.Studio)
             .FirstOrDefaultAsync(b => b.Id == id);
 
         if (booking == null)
@@ -360,6 +391,10 @@ public class BookingsController : ControllerBase
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Booking {BookingId} cancelled by admin", booking.Id);
+
+        // Publish cancellation event
+        var cancellationEvent = BookingEventFactory.CreateBookingCancelledEvent(booking);
+        await _messageBus.PublishAsync(cancellationEvent);
 
         return Ok(new
         {
