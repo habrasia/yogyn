@@ -1,6 +1,3 @@
-# ============================================
-# TERRAFORM CONFIGURATION
-# ============================================
 terraform {
   required_providers {
     azurerm = {
@@ -14,9 +11,6 @@ terraform {
   }
 }
 
-# ============================================
-# PROVIDER CONFIGURATION
-# ============================================
 provider "azurerm" {
   features {
     key_vault {
@@ -26,9 +20,6 @@ provider "azurerm" {
   }
 }
 
-# ============================================
-# VARIABLES
-# ============================================
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
@@ -41,14 +32,8 @@ variable "location" {
   default     = "North Europe"
 }
 
-# ============================================
-# DATA SOURCES
-# ============================================
 data "azurerm_client_config" "current" {}
 
-# ============================================
-# RANDOM RESOURCES
-# ============================================
 resource "random_string" "suffix" {
   length  = 6
   upper   = false
@@ -61,9 +46,6 @@ resource "random_password" "db_password" {
   override_special = "!#$%&*()-_=+[]{}<>:?"
 }
 
-# ============================================
-# RESOURCE GROUP
-# ============================================
 resource "azurerm_resource_group" "yogyn" {
   name     = "yogyn-${var.environment}-rg"
   location = var.location
@@ -76,9 +58,6 @@ resource "azurerm_resource_group" "yogyn" {
   }
 }
 
-# ============================================
-# KEY VAULT
-# ============================================
 resource "azurerm_key_vault" "yogyn" {
   name                = "yogyn-${var.environment}-kv-${random_string.suffix.result}"
   location            = azurerm_resource_group.yogyn.location
@@ -86,10 +65,8 @@ resource "azurerm_key_vault" "yogyn" {
   tenant_id           = data.azurerm_client_config.current.tenant_id
   sku_name            = "standard"
   
-  # Allow Terraform to manage secrets
   enable_rbac_authorization = false
   
-  # Access policy for current user
   access_policy {
     tenant_id = data.azurerm_client_config.current.tenant_id
     object_id = data.azurerm_client_config.current.object_id
@@ -107,9 +84,6 @@ resource "azurerm_key_vault" "yogyn" {
   tags = azurerm_resource_group.yogyn.tags
 }
 
-# ============================================
-# KEY VAULT SECRET
-# ============================================
 resource "azurerm_key_vault_secret" "db_password" {
   name         = "db-admin-password"
   value        = random_password.db_password.result
@@ -118,9 +92,6 @@ resource "azurerm_key_vault_secret" "db_password" {
   depends_on = [azurerm_key_vault.yogyn]
 }
 
-# ============================================
-# POSTGRESQL DATABASE
-# ============================================
 resource "azurerm_postgresql_flexible_server" "yogyn" {
   name                   = "yogyn-${var.environment}-${random_string.suffix.result}"
   resource_group_name    = azurerm_resource_group.yogyn.name
@@ -136,12 +107,15 @@ resource "azurerm_postgresql_flexible_server" "yogyn" {
   backup_retention_days        = 7
   geo_redundant_backup_enabled = false
   
+  lifecycle {
+    ignore_changes = [
+      zone
+    ]
+  }
+  
   tags = azurerm_resource_group.yogyn.tags
 }
 
-# ============================================
-# DATABASE
-# ============================================
 resource "azurerm_postgresql_flexible_server_database" "yogyn" {
   name      = "yogyn"
   server_id = azurerm_postgresql_flexible_server.yogyn.id
@@ -149,9 +123,6 @@ resource "azurerm_postgresql_flexible_server_database" "yogyn" {
   collation = "en_US.utf8"
 }
 
-# ============================================
-# FIREWALL RULE
-# ============================================
 resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_azure_services" {
   name             = "AllowAzureServices"
   server_id        = azurerm_postgresql_flexible_server.yogyn.id
@@ -166,9 +137,6 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_dev_ip" {
   end_ip_address   = "255.255.255.255"
 }
 
-# ============================================
-# KEY VAULT SECRET
-# ============================================
 resource "azurerm_key_vault_secret" "db_connection_string" {
   name         = "db-connection-string"
   value        = "Host=${azurerm_postgresql_flexible_server.yogyn.fqdn};Database=yogyn;Username=yogynadmin;Password=${random_password.db_password.result};SSL Mode=Require"
@@ -180,9 +148,38 @@ resource "azurerm_key_vault_secret" "db_connection_string" {
   ]
 }
 
-# ============================================
-# OUTPUTS
-# ============================================
+# Service Bus for async email notifications
+resource "azurerm_servicebus_namespace" "yogyn" {
+  name                = "yogyn-${var.environment}-sb-${random_string.suffix.result}"
+  location            = azurerm_resource_group.yogyn.location
+  resource_group_name = azurerm_resource_group.yogyn.name
+  sku                 = "Basic"
+  
+  tags = azurerm_resource_group.yogyn.tags
+}
+
+resource "azurerm_servicebus_queue" "booking_notifications" {
+  name         = "booking-notifications"
+  namespace_id = azurerm_servicebus_namespace.yogyn.id
+  
+  max_delivery_count                   = 10
+  default_message_ttl                  = "P7D"
+  lock_duration                        = "PT5M"
+  dead_lettering_on_message_expiration = true
+}
+
+resource "azurerm_key_vault_secret" "servicebus_connection_string" {
+  name         = "servicebus-connection-string"
+  value        = azurerm_servicebus_namespace.yogyn.default_primary_connection_string
+  key_vault_id = azurerm_key_vault.yogyn.id
+  
+  depends_on = [
+    azurerm_key_vault.yogyn,
+    azurerm_servicebus_namespace.yogyn
+  ]
+}
+
+# Outputs
 output "resource_group_name" {
   value       = azurerm_resource_group.yogyn.name
   description = "The name of the resource group"
@@ -217,4 +214,20 @@ output "db_connection_string_for_local_dev" {
   value       = azurerm_key_vault_secret.db_connection_string.value
   sensitive   = true
   description = "Use 'terraform output -raw db_connection_string_for_local_dev' to get connection string"
+}
+
+output "servicebus_connection_string" {
+  value       = azurerm_servicebus_namespace.yogyn.default_primary_connection_string
+  sensitive   = true
+  description = "Service Bus connection string for local development"
+}
+
+output "servicebus_namespace_name" {
+  value       = azurerm_servicebus_namespace.yogyn.name
+  description = "Service Bus namespace name"
+}
+
+output "servicebus_queue_name" {
+  value       = azurerm_servicebus_queue.booking_notifications.name
+  description = "Service Bus queue name"
 }

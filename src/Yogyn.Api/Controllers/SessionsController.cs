@@ -22,15 +22,12 @@ public class SessionsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<object>>> GetSessions([FromQuery] Guid? studioId = null)
     {
-        _logger.LogInformation("Fetching sessions, studioId filter: {StudioId}", studioId);
+        _logger.LogInformation("Fetching sessions");
 
-        var query = _context.Sessions
-            .Where(s => s.Status == SessionStatus.Active);
+        var query = _context.Sessions.Where(s => s.Status == SessionStatus.Active);
 
         if (studioId.HasValue)
-        {
             query = query.Where(s => s.StudioId == studioId.Value);
-        }
 
         var sessions = await query
             .Include(s => s.Studio)
@@ -44,6 +41,7 @@ public class SessionsController : ControllerBase
                 s.StartsAt,
                 s.DurationMinutes,
                 s.Capacity,
+                // Count confirmed bookings only (not pending)
                 BookedCount = s.Bookings.Count(b => b.Status == BookingStatus.Confirmed),
                 SpotsLeft = s.Capacity - s.Bookings.Count(b => b.Status == BookingStatus.Confirmed),
                 IsFull = s.Bookings.Count(b => b.Status == BookingStatus.Confirmed) >= s.Capacity,
@@ -99,10 +97,7 @@ public class SessionsController : ControllerBase
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (session == null)
-        {
-            _logger.LogWarning("Session {SessionId} not found", id);
             return NotFound(new { error = "Session not found" });
-        }
 
         return Ok(session);
     }
@@ -113,37 +108,24 @@ public class SessionsController : ControllerBase
     {
         _logger.LogInformation("Creating session for studio {StudioId}", dto.StudioId);
 
-        // Validate studio exists and is active
         var studioExists = await _context.Studios.AnyAsync(s => s.Id == dto.StudioId && s.Status == StudioStatus.Active);
         if (!studioExists)
-        {
-            _logger.LogWarning("Studio {StudioId} not found or inactive", dto.StudioId);
             return BadRequest(new { error = "Studio not found or inactive" });
-        }
 
-        // Validate capacity
         if (dto.Capacity <= 0)
-        {
             return BadRequest(new { error = "Capacity must be greater than 0" });
-        }
 
-        // Validate duration
         if (dto.DurationMinutes <= 0)
-        {
             return BadRequest(new { error = "Duration must be greater than 0" });
-        }
 
-        // Validate start time is in future
         if (dto.StartsAt <= DateTime.UtcNow)
-        {
             return BadRequest(new { error = "Start time must be in the future" });
-        }
 
         var session = new Session
         {
             Id = Guid.NewGuid(),
             StudioId = dto.StudioId,
-            Title = dto.Title,
+            Title = dto.Title.Trim(),
             StartsAt = dto.StartsAt,
             DurationMinutes = dto.DurationMinutes,
             Capacity = dto.Capacity,
@@ -154,7 +136,7 @@ public class SessionsController : ControllerBase
         _context.Sessions.Add(session);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Session {SessionId} created successfully", session.Id);
+        _logger.LogInformation("Session {SessionId} created", session.Id);
 
         return CreatedAtAction(nameof(GetSession), new { id = session.Id }, new
         {
@@ -177,28 +159,29 @@ public class SessionsController : ControllerBase
 
         var session = await _context.Sessions.FindAsync(id);
         if (session == null || session.Status == SessionStatus.Cancelled)
-        {
-            _logger.LogWarning("Session {SessionId} not found or cancelled", id);
             return NotFound(new { error = "Session not found or cancelled" });
-        }
 
-        // Validate capacity isn't less than current bookings
         var currentBookings = await _context.Bookings
             .CountAsync(b => b.SessionId == id && b.Status == BookingStatus.Confirmed);
 
         if (dto.Capacity < currentBookings)
         {
-            return BadRequest(new { error = $"Cannot reduce capacity below current bookings ({currentBookings})" });
+            return BadRequest(new 
+            { 
+                error = $"Cannot reduce capacity below current bookings ({currentBookings})",
+                currentBookings,
+                requestedCapacity = dto.Capacity
+            });
         }
 
-        session.Title = dto.Title;
+        session.Title = dto.Title.Trim();
         session.StartsAt = dto.StartsAt;
         session.DurationMinutes = dto.DurationMinutes;
         session.Capacity = dto.Capacity;
 
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Session {SessionId} updated successfully", id);
+        _logger.LogInformation("Session {SessionId} updated", id);
 
         return NoContent();
     }
@@ -211,15 +194,12 @@ public class SessionsController : ControllerBase
 
         var session = await _context.Sessions.FindAsync(id);
         if (session == null)
-        {
-            _logger.LogWarning("Session {SessionId} not found", id);
             return NotFound(new { error = "Session not found" });
-        }
 
         session.Status = SessionStatus.Cancelled;
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Session {SessionId} cancelled successfully", id);
+        _logger.LogInformation("Session {SessionId} cancelled", id);
 
         return NoContent();
     }
