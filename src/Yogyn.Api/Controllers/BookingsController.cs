@@ -129,6 +129,18 @@ public class BookingsController : ControllerBase
         if (session == null)
             return NotFound(new { error = "Session not found or cancelled" });
 
+        if (session.StartsAt <= DateTime.UtcNow)
+        {
+            _logger.LogWarning("Attempted to book past session {SessionId} that starts at {StartsAt}", 
+                dto.SessionId, session.StartsAt);
+            return BadRequest(new
+            {
+                error = "Cannot book - session has already started or is in the past",
+                sessionTitle = session.Title,
+                sessionStartsAt = session.StartsAt
+            });
+        }
+
         // Check capacity (confirmed + pending count against capacity)
         var currentBookings = session.Bookings.Count;
         if (currentBookings >= session.Capacity)
