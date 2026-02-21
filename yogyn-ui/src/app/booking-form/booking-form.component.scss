@@ -1,0 +1,354 @@
+.booking-page {
+  min-height: 100vh;
+  background: var(--paper);
+  padding-bottom: var(--space-xl);
+}
+
+/* ============================================
+   LOADING STATE
+   ============================================ */
+.loading-container {
+  text-align: center;
+  padding: var(--space-2xl) var(--space-md);
+  
+  p {
+    margin-top: var(--space-sm);
+    color: var(--ink);
+    opacity: 0.6;
+  }
+}
+
+/* ============================================
+   MAIN CONTAINER
+   ============================================ */
+.booking-container {
+  max-width: var(--container-narrow);
+  margin: 0 auto;
+  padding: var(--space-lg) var(--space-md);
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+.header {
+  text-align: center;
+  margin-bottom: var(--space-lg);
+  
+  h1 {
+    font-size: 42px;
+    margin-bottom: var(--space-sm);
+    color: var(--charcoal);
+  }
+  
+  .back-link {
+    background: transparent;
+    border: none;
+    color: var(--sage-primary);
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    padding: var(--space-xs) 0;
+    transition: opacity 0.2s ease;
+    font-family: 'Inter', sans-serif;
+    
+    &:hover {
+      opacity: 0.7;
+    }
+    
+    &:focus-visible {
+      outline: 2px solid var(--sage-primary);
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+  }
+}
+
+/* ============================================
+   SESSION SUMMARY
+   ============================================ */
+.session-summary {
+  background: var(--cream);
+  border: none;
+  border-radius: 6px;
+  padding: 40px;
+  margin-bottom: var(--space-md);
+  box-shadow: var(--shadow-subtle);
+  position: relative;
+  
+  /* Subtle accent */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 40px;
+    right: 40px;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--sage-light) 50%,
+      transparent
+    );
+    opacity: 0.4;
+  }
+  
+  h2 {
+    font-size: 28px;
+    margin-bottom: var(--space-xs);
+    color: var(--charcoal);
+  }
+}
+
+.summary-details {
+  border-top: 1px solid var(--clay);
+  padding-top: var(--space-md);
+  margin-top: var(--space-md);
+  
+  .detail {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 0;
+    font-size: 15px;
+    
+    .label {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--earth);
+      opacity: 0.8;
+    }
+    
+    .value {
+      color: var(--charcoal);
+      font-weight: 400;
+      text-align: right;
+    }
+  }
+}
+
+/* ============================================
+   ERROR MESSAGE
+   ============================================ */
+.error-message {
+  background: linear-gradient(
+    135deg,
+    rgba(212, 118, 106, 0.08),
+    rgba(212, 118, 106, 0.04)
+  );
+  border-left: 3px solid #D4766A;
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+  color: #B85D52;
+  font-size: 14px;
+  border-radius: 6px;
+  line-height: 1.6;
+}
+
+/* ============================================
+   FORM
+   ============================================ */
+.form {
+  background: var(--cream);
+  border: none;
+  border-radius: 6px;
+  padding: 40px;
+  box-shadow: var(--shadow-subtle);
+  position: relative;
+  
+  /* Subtle accent */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 40px;
+    right: 40px;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--sage-light) 50%,
+      transparent
+    );
+    opacity: 0.4;
+  }
+  
+  h3 {
+    font-size: 20px;
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--clay);
+    color: var(--charcoal);
+  }
+}
+
+/* ============================================
+   FORM ROW
+   ============================================ */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+  
+  @media (min-width: 576px) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ============================================
+   FORM GROUP
+   ============================================ */
+.form-group {
+  margin-bottom: var(--space-md);
+  
+  label {
+    display: block;
+    margin-bottom: var(--space-xs);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--charcoal);
+  }
+  
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"] {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid var(--clay);
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: 400;
+    background: var(--cream);
+    color: var(--charcoal);
+    transition: all 0.3s var(--ease-slow);
+    font-family: 'Inter', sans-serif;
+    
+    &::placeholder {
+      color: var(--stone);
+    }
+    
+    &:focus {
+      outline: none;
+      border-color: var(--sage-primary);
+      box-shadow: var(--shadow-focus);
+    }
+    
+    &.invalid {
+      border-color: #D4766A;
+    }
+  }
+  
+  .help-text {
+    font-size: 13px;
+    color: var(--ink);
+    opacity: 0.6;
+    margin-top: 6px;
+    font-weight: 400;
+  }
+  
+  .error {
+    font-size: 13px;
+    color: #B85D52;
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+}
+
+/* ============================================
+   CHECKBOX GROUP
+   ============================================ */
+.checkbox-group {
+  margin-bottom: var(--space-md);
+  
+  .checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+    
+    input[type="checkbox"] {
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+    
+    span {
+      font-size: 14px;
+      color: var(--ink);
+      line-height: 1.6;
+      font-weight: 400;
+      
+      a {
+        color: var(--sage-primary);
+        text-decoration: underline;
+        
+        &:hover {
+          opacity: 0.8;
+        }
+      }
+    }
+  }
+}
+
+/* ============================================
+   SUBMIT BUTTON
+   ============================================ */
+.form .btn {
+  width: 100%;
+  margin-top: var(--space-sm);
+}
+
+/* ============================================
+   PRIVACY NOTE
+   ============================================ */
+.privacy-note {
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink);
+  opacity: 0.5;
+  margin-top: var(--space-sm);
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 576px) {
+  .booking-container {
+    padding: var(--space-md) var(--space-sm);
+  }
+  
+  .header {
+    h1 {
+      font-size: 32px;
+    }
+  }
+  
+  .session-summary {
+    padding: var(--space-md);
+    
+    &::before {
+      left: var(--space-md);
+      right: var(--space-md);
+    }
+    
+    h2 {
+      font-size: 24px;
+    }
+  }
+  
+  .form {
+    padding: var(--space-md);
+    
+    &::before {
+      left: var(--space-md);
+      right: var(--space-md);
+    }
+  }
+  
+  .form-row {
+    gap: var(--space-sm);
+  }
+}
