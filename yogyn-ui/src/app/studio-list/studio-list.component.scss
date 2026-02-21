@@ -1,0 +1,274 @@
+.studios-page {
+  min-height: 100vh;
+  background: var(--paper);
+  padding-bottom: var(--space-xl);
+}
+
+/* ============================================
+   HEADER WITH LOGO WATERMARK
+   ============================================ */
+.header {
+  text-align: center;
+  padding: var(--space-xl) var(--space-md) var(--space-lg);
+  background: var(--cream);
+  border-bottom: 1px solid var(--clay);
+  position: relative;
+  overflow: hidden;
+  
+  /* Subtle logo watermark */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 180px;
+    height: 180px;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 140' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%238B9D8A'%3E%3Cpath d='M 80 50 Q 100 45 120 50 L 130 75 Q 100 80 70 75 Z' /%3E%3Ccircle cx='75' cy='70' r='9' /%3E%3Cpath d='M 75 65 Q 55 80 40 100 L 35 98 Q 50 78 70 68 Z' /%3E%3Cpath d='M 125 65 Q 145 80 160 100 L 165 98 Q 150 78 130 68 Z' /%3E%3Cpath d='M 85 75 Q 75 95 70 115 L 65 113 Q 70 93 82 78 Z' /%3E%3Cpath d='M 115 75 Q 125 95 130 115 L 135 113 Q 130 93 118 78 Z' /%3E%3C/g%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.03;
+    pointer-events: none;
+  }
+  
+  h1 {
+    font-size: 42px;
+    margin-bottom: var(--space-xs);
+    color: var(--charcoal);
+    position: relative;
+    z-index: 1;
+  }
+  
+  .subtitle {
+    font-size: 17px;
+    color: var(--ink);
+    opacity: 0.6;
+    font-weight: 400;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+  }
+}
+
+/* ============================================
+   LOADING STATE
+   ============================================ */
+.loading-container {
+  text-align: center;
+  padding: var(--space-xl) var(--space-md);
+  
+  p {
+    margin-top: var(--space-sm);
+    color: var(--ink);
+    opacity: 0.6;
+    font-size: 15px;
+  }
+}
+
+/* ============================================
+   ERROR STATE
+   ============================================ */
+.error-container {
+  text-align: center;
+  padding: var(--space-xl) var(--space-md);
+  
+  p {
+    color: #D4766A;
+    font-size: 15px;
+  }
+}
+
+/* ============================================
+   STUDIOS CONTAINER
+   ============================================ */
+.studios-container {
+  max-width: var(--container-medium);
+  margin: 0 auto;
+  padding: var(--space-lg) var(--space-md);
+}
+
+/* ============================================
+   EMPTY STATE
+   ============================================ */
+.empty-state {
+  text-align: center;
+  padding: var(--space-xl) var(--space-md);
+  
+  p {
+    color: var(--ink);
+    opacity: 0.5;
+    font-size: 16px;
+  }
+}
+
+/* ============================================
+   STUDIOS GRID
+   ============================================ */
+.studios-grid {
+  display: grid;
+  gap: var(--space-md);
+}
+
+/* ============================================
+   STUDIO CARD - Refined
+   ============================================ */
+.studio-card {
+  background: var(--cream);
+  border: none;
+  border-radius: 6px;
+  padding: 40px;
+  box-shadow: var(--shadow-subtle);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  transition: all var(--duration-slow) var(--ease-slow);
+  position: relative;
+  
+  /* Subtle top accent */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 40px;
+    right: 40px;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--sage-light) 50%,
+      transparent
+    );
+    opacity: 0.4;
+  }
+  
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lifted);
+  }
+  
+  &:focus-visible {
+    outline: 2px solid var(--sage-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* ============================================
+   STUDIO AVATAR
+   ============================================ */
+.studio-avatar {
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
+  border-radius: 6px;
+  background: linear-gradient(
+    135deg,
+    var(--sage-wash) 0%,
+    var(--sage-light) 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 400;
+  color: var(--sage-dark);
+  box-shadow: 0 2px 8px rgba(139, 157, 138, 0.12);
+}
+
+/* ============================================
+   STUDIO INFO
+   ============================================ */
+.studio-info {
+  flex: 1;
+  min-width: 0;
+  
+  h3 {
+    font-size: 22px;
+    margin-bottom: 6px;
+    color: var(--charcoal);
+    line-height: 1.3;
+  }
+  
+  .address {
+    font-size: 14px;
+    color: var(--earth);
+    font-weight: 400;
+    margin: 0;
+    opacity: 0.8;
+  }
+}
+
+/* ============================================
+   ARROW INDICATOR
+   ============================================ */
+.arrow {
+  color: var(--sage-primary);
+  font-size: 24px;
+  opacity: 0.4;
+  flex-shrink: 0;
+  transition: all var(--duration-normal) var(--ease-slow);
+  transform: translateX(0);
+}
+
+.studio-card:hover .arrow {
+  opacity: 1;
+  transform: translateX(4px);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 768px) {
+  .header {
+    padding: var(--space-lg) var(--space-md) var(--space-md);
+    
+    h1 {
+      font-size: 36px;
+    }
+    
+    .subtitle {
+      font-size: 16px;
+    }
+  }
+  
+  .studios-container {
+    padding: var(--space-md) var(--space-sm);
+  }
+}
+
+@media (max-width: 576px) {
+  .header {
+    padding: var(--space-md) var(--space-sm) var(--space-md);
+    
+    h1 {
+      font-size: 32px;
+    }
+  }
+  
+  .studios-container {
+    padding: var(--space-md) var(--space-sm);
+  }
+  
+  .studio-card {
+    padding: var(--space-md);
+    gap: var(--space-sm);
+    
+    &::before {
+      left: var(--space-md);
+      right: var(--space-md);
+    }
+  }
+  
+  .studio-avatar {
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+    font-size: 22px;
+  }
+  
+  .studio-info h3 {
+    font-size: 20px;
+  }
+}

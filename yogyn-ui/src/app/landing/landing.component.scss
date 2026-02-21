@@ -1,0 +1,203 @@
+.landing-page {
+  min-height: 100vh;
+  background: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg) var(--space-md);
+  position: relative;
+  overflow: hidden;
+  
+  /* Subtle radial gradient overlay */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120%;
+    height: 120%;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(139, 157, 138, 0.03) 0%,
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+}
+
+.landing-content {
+  text-align: center;
+  max-width: 520px;  /* Increased from 480px for bigger logo */
+  width: 100%;
+  position: relative;
+  z-index: 2;
+}
+
+/* ============================================
+   LOGO - BIGGER VERSION
+   ============================================ */
+.logo-container {
+  margin-bottom: var(--space-md);  /* 32px */
+  animation: fadeInUp 1s var(--ease-slow);
+}
+
+.logo-svg {
+  /* BIGGER LOGO - More presence */
+  width: 240px;
+  height: auto;
+  
+  /* Styling */
+  opacity: 0.95;
+  transition: all var(--duration-slow) var(--ease-slow);
+  filter: drop-shadow(0 2px 8px rgba(139, 157, 138, 0.1));
+  
+  /* Sharp rendering for PNG */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  
+  &:hover {
+    opacity: 1;
+    transform: translateY(-2px);
+    filter: drop-shadow(0 4px 12px rgba(139, 157, 138, 0.15));
+  }
+}
+
+/* ============================================
+   BRAND NAME
+   ============================================ */
+.brand-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 56px;
+  font-weight: 400;
+  letter-spacing: 14px;
+  color: var(--charcoal);
+  margin: 0 0 var(--space-sm) 0;
+  animation: fadeInUp 1s var(--ease-slow) 0.5s both;
+}
+
+/* ============================================
+   TAGLINE
+   ============================================ */
+.tagline {
+  font-size: 16px;
+  color: var(--ink);
+  font-weight: 400;
+  line-height: 1.7;
+  margin: 0 0 var(--space-md) 0;
+  opacity: 0.7;
+  animation: fadeInUp 1s var(--ease-slow) 0.7s both;
+}
+
+/* ============================================
+   DIVIDER
+   ============================================ */
+.divider {
+  width: 48px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--sage-light) 50%,
+    transparent
+  );
+  margin: 0 auto var(--space-md);
+  opacity: 0.6;
+  animation: expandDivider 0.8s var(--ease-slow) 0.9s both;
+}
+
+@keyframes expandDivider {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+  to {
+    width: 48px;
+    opacity: 0.6;
+  }
+}
+
+/* ============================================
+   ACTION BUTTONS
+   ============================================ */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  max-width: 300px;
+  margin: 0 auto var(--space-md);
+  animation: fadeInUp 1s var(--ease-slow) 1.1s both;
+}
+
+/* ============================================
+   FOOTER NOTE
+   ============================================ */
+.footer-note {
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 400;
+  line-height: 1.6;
+  margin: 0;
+  opacity: 0.5;
+  animation: fadeIn 1s var(--ease-slow) 1.3s both;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 768px) {
+  .logo-svg {
+    width: 200px;
+  }
+  
+  .brand-name {
+    font-size: 48px;
+    letter-spacing: 12px;
+  }
+}
+
+@media (max-width: 576px) {
+  .landing-page {
+    padding: var(--space-md) var(--space-sm);
+  }
+  
+  .logo-svg {
+    width: 160px;
+  }
+  
+  .brand-name {
+    font-size: 42px;
+    letter-spacing: 10px;
+  }
+  
+  .tagline {
+    font-size: 15px;
+  }
+  
+  .actions {
+    max-width: 100%;
+  }
+}

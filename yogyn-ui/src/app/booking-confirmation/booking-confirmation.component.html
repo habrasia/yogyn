@@ -1,0 +1,93 @@
+<div class="confirmation-page">
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="loading-container">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="!loading && error" class="loading-container">
+    <p>{{ error }}</p>
+  </div>
+
+  <!-- Confirmation -->
+  <div *ngIf="!loading && booking" class="confirmation-container">
+
+    <!-- Success Icon -->
+    <div class="success-icon">
+      <svg viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r="38" fill="none" stroke="currentColor" stroke-width="2" class="circle"/>
+        <path d="M 20 40 L 35 55 L 60 25" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="checkmark"/>
+      </svg>
+    </div>
+
+    <!-- Status Message -->
+    <div class="status-message">
+      <h1 *ngIf="booking.status === 1">Booking Confirmed!</h1>
+      <h1 *ngIf="booking.status === 0">Booking Received</h1>
+
+      <p *ngIf="booking.status === 1" class="subtitle">
+        Your spot is reserved. See you on the mat!
+      </p>
+      <p *ngIf="booking.status === 0" class="subtitle">
+        Your booking is awaiting studio approval.<br>
+        You'll receive an email within 24 hours.
+      </p>
+    </div>
+
+    <!-- Booking Details -->
+    <div class="booking-details">
+      <h2>{{ booking.sessionTitle }}</h2>
+
+      <div class="details-grid">
+        <div class="detail">
+          <span class="label">Studio</span>
+          <span class="value">{{ booking.studioName }}</span>
+        </div>
+
+        <div class="detail">
+          <span class="label">Date</span>
+          <span class="value">{{ formatDate(booking.sessionStartsAt) }}</span>
+        </div>
+
+        <div class="detail">
+          <span class="label">Time</span>
+          <span class="value">{{ formatTime(booking.sessionStartsAt) }}</span>
+        </div>
+
+        <div class="detail">
+          <span class="label">Name</span>
+          <span class="value">{{ booking.firstName }} {{ booking.lastName }}</span>
+        </div>
+
+        <div class="detail">
+          <span class="label">Email</span>
+          <span class="value">{{ booking.email }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Next Steps -->
+    <div class="next-steps" *ngIf="booking.status === 1">
+      <h3>What's Next?</h3>
+      <ul>
+        <li>Check your email for confirmation</li>
+        <li>Arrive 10 minutes early</li>
+        <li>Bring your own mat (or rent at studio)</li>
+        <li>Free cancellation up to 12 hours before class</li>
+      </ul>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <button class="btn btn-primary" (click)="bookAnother()">
+        Book Another Class
+      </button>
+      <button class="btn btn-secondary" (click)="goHome()">
+        Back to Home
+      </button>
+    </div>
+
+  </div>
+
+</div>

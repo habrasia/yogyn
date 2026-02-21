@@ -1,0 +1,40 @@
+<div class="studios-page">
+
+  <div class="header">
+    <h1>Find Your Studio</h1>
+    <p class="subtitle">Choose a studio to view available classes</p>
+  </div>
+
+  <div *ngIf="loading" class="loading-container">
+    <div class="spinner"></div>
+    <p>Loading studios...</p>
+  </div>
+
+  <div *ngIf="error" class="error-container">
+    <p>{{ error }}</p>
+  </div>
+
+  <div *ngIf="!loading && !error" class="studios-container">
+    <div *ngIf="studios.length === 0" class="empty-state">
+      <p>No studios registered yet.</p>
+    </div>
+
+    <div class="studios-grid">
+      <div
+        *ngFor="let studio of studios"
+        class="studio-card"
+        (click)="goToStudio(studio.id)"
+      >
+        <div class="studio-avatar">{{ studio.name.charAt(0) }}</div>
+
+        <div class="studio-info">
+          <h3>{{ studio.name }}</h3>
+          <p class="address">{{ studio.timezone }}</p>
+        </div>
+
+        <div class="arrow">→</div>
+      </div>
+    </div>
+  </div>
+
+</div>

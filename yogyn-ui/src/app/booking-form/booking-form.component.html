@@ -1,0 +1,163 @@
+<div class="booking-page">
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <div class="spinner"></div>
+    <p>Loading class details...</p>
+  </div>
+
+  <!-- Error loading session -->
+  <div *ngIf="!loading && !session" class="loading-container">
+    <p>{{ error || 'Session not found.' }}</p>
+  </div>
+
+  <!-- Booking Form -->
+  <div *ngIf="!loading && session" class="booking-container">
+
+    <!-- Header -->
+    <div class="header">
+      <h1>Book Your Spot</h1>
+      <button class="back-link" (click)="goBack()">
+        ← Back to classes
+      </button>
+    </div>
+
+    <!-- Session Summary -->
+    <div class="session-summary">
+      <h2>{{ session.title }}</h2>
+
+      <div class="summary-details">
+        <div class="detail">
+          <span class="label">Studio</span>
+          <span class="value">{{ session.studioName }}</span>
+        </div>
+        <div class="detail">
+          <span class="label">Date</span>
+          <span class="value">{{ formatDate(session.startsAt) }}</span>
+        </div>
+        <div class="detail">
+          <span class="label">Time</span>
+          <span class="value">{{ formatTime(session.startsAt) }}</span>
+        </div>
+        <div class="detail">
+          <span class="label">Duration</span>
+          <span class="value">{{ session.durationMinutes }} minutes</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error Message -->
+    <div *ngIf="error" class="error-message">
+      {{ error }}
+    </div>
+
+    <!-- Booking Form -->
+    <form [formGroup]="bookingForm" (ngSubmit)="onSubmit()" class="form">
+
+      <h3>Your Details</h3>
+
+      <!-- Name Row -->
+      <div class="form-row">
+        <div class="form-group">
+          <label for="firstName">First Name *</label>
+          <input
+            type="text"
+            id="firstName"
+            formControlName="firstName"
+            [class.invalid]="firstName?.invalid && firstName?.touched"
+            placeholder="Jane"
+          />
+          <div class="error" *ngIf="firstName?.invalid && firstName?.touched">
+            <span *ngIf="firstName?.errors?.['required']">First name is required</span>
+            <span *ngIf="firstName?.errors?.['minlength']">At least 2 characters</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="lastName">Last Name *</label>
+          <input
+            type="text"
+            id="lastName"
+            formControlName="lastName"
+            [class.invalid]="lastName?.invalid && lastName?.touched"
+            placeholder="Smith"
+          />
+          <div class="error" *ngIf="lastName?.invalid && lastName?.touched">
+            <span *ngIf="lastName?.errors?.['required']">Last name is required</span>
+            <span *ngIf="lastName?.errors?.['minlength']">At least 2 characters</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Email -->
+      <div class="form-group">
+        <label for="email">Email Address *</label>
+        <input
+          type="email"
+          id="email"
+          formControlName="email"
+          [class.invalid]="email?.invalid && email?.touched"
+          placeholder="jane@example.com"
+        />
+        <p class="help-text">You'll receive booking confirmation here</p>
+        <div class="error" *ngIf="email?.invalid && email?.touched">
+          <span *ngIf="email?.errors?.['required']">Email is required</span>
+          <span *ngIf="email?.errors?.['email']">Please enter a valid email</span>
+        </div>
+      </div>
+
+      <!-- Phone (Optional) -->
+      <div class="form-group">
+        <label for="phone">Phone Number (Optional)</label>
+        <input
+          type="tel"
+          id="phone"
+          formControlName="phone"
+          [class.invalid]="phone?.invalid && phone?.touched"
+          placeholder="+44 7700 900000"
+        />
+        <div class="error" *ngIf="phone?.invalid && phone?.touched">
+          <span *ngIf="phone?.errors?.['pattern']">Please enter a valid phone number</span>
+        </div>
+      </div>
+
+      <!-- Policy Agreement -->
+      <div class="form-group checkbox-group">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            formControlName="agreedToPolicy"
+            [class.invalid]="agreedToPolicy?.invalid && agreedToPolicy?.touched"
+          />
+          <span>
+            I agree to the <a href="/terms" target="_blank">cancellation policy</a>
+            (free cancellation up to 12 hours before class) *
+          </span>
+        </label>
+        <div class="error" *ngIf="agreedToPolicy?.invalid && agreedToPolicy?.touched">
+          <span>You must agree to the policy</span>
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="submitting"
+      >
+        <span *ngIf="!submitting">Confirm Booking</span>
+        <span *ngIf="submitting">
+          <span class="spinner-small"></span>
+          Processing...
+        </span>
+      </button>
+
+      <p class="privacy-note">
+        Your information is secure and will only be used for booking confirmation.
+      </p>
+
+    </form>
+
+  </div>
+
+</div>

@@ -1,0 +1,63 @@
+<div class="studio-page">
+
+  <div class="header">
+    <h1>{{ studioName }}</h1>
+    <p class="subtitle">Select a class to book</p>
+  </div>
+
+  <div *ngIf="loading" class="loading-container">
+    <div class="spinner"></div>
+    <p>Loading classes...</p>
+  </div>
+
+  <div *ngIf="!loading" class="sessions-container">
+
+    <div *ngIf="sessions.length === 0" class="empty-state">
+      <p>No classes scheduled yet.</p>
+      <p class="hint">Check back soon or contact the studio.</p>
+    </div>
+
+    <div class="sessions-grid">
+      <div *ngFor="let session of sessions" class="session-card">
+
+        <div class="session-header">
+          <h3>{{ session.title }}</h3>
+        </div>
+
+        <div class="session-details">
+          <div class="detail-row">
+            <span class="label">Date</span>
+            <span class="value">{{ formatDate(session.startsAt) }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Time</span>
+            <span class="value">{{ formatTime(session.startsAt) }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Duration</span>
+            <span class="value">{{ session.durationMinutes }} minutes</span>
+          </div>
+        </div>
+
+        <div class="availability"
+             [class.full]="isFull(session)"
+             [class.almost-full]="isAlmostFull(session)">
+          <span *ngIf="!isFull(session)">
+            {{ getSpotsLeft(session) }} {{ getSpotsLeft(session) === 1 ? 'spot' : 'spots' }} left
+          </span>
+          <span *ngIf="isFull(session)">Class is full</span>
+        </div>
+
+        <button
+          class="btn btn-primary"
+          (click)="bookSession(session.id)"
+          [disabled]="isFull(session)">
+          {{ isFull(session) ? 'Fully Booked' : 'Book This Class' }}
+        </button>
+
+      </div>
+    </div>
+
+  </div>
+
+</div>
